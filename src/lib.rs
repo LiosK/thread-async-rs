@@ -1,3 +1,20 @@
+//! Execute a task in a new thread and await the result asynchronously.
+//!
+//! ```rust
+//! use std::{thread, time};
+//!
+//! #[tokio::main]
+//! async fn main() {
+//!     let output = thread_async::run(|| {
+//!         thread::sleep(time::Duration::from_millis(250));
+//!         42
+//!     })
+//!     .await;
+//!
+//!     assert_eq!(output, 42);
+//! }
+//! ```
+
 use std::{future, future::Future, io, sync, task, thread};
 
 /// Executes a blocking task in a dedicated thread, returning a [`Future`] to await the result.

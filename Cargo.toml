@@ -10,4 +10,4 @@ repository = "https://github.com/LiosK/thread-async-rs"
 [dependencies]
 
 [dev-dependencies]
-tokio = { version = "1.40", features = ["rt", "time", "macros"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "time", "macros"] }

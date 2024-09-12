@@ -15,13 +15,19 @@ where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
 {
-    run_with_builder(thread::Builder::new(), blocking_fn).unwrap()
+    run_with_builder(thread::Builder::new(), blocking_fn)
+        .expect("failed to spawn thread")
+        .0
 }
 
 /// Executes a blocking task in a dedicated thread, returning a [`Future`] to await the result.
 ///
-/// For more information, see [`run`]. Unlike `run`, this function takes a [`thread::Builder`] to
-/// configure the thread and returns a `Result` to report any failure in creating the thread.
+/// For more information, see [`run()`]. Unlike `run()`, this function:
+///
+/// - Receives a [`thread::Builder`] to configure the thread.
+/// - Returns an [`io::Result`] to report any failure in creating the thread.
+/// - Returns a [`thread::JoinHandle`] to join the thread synchronously, in addition to the
+///   [`Future`] to await the result.
 ///
 /// # Errors
 ///
@@ -29,37 +35,38 @@ where
 pub fn run_with_builder<F, T>(
     builder: thread::Builder,
     blocking_fn: F,
-) -> io::Result<impl Future<Output = T>>
+) -> io::Result<(impl Future<Output = T>, thread::JoinHandle<()>)>
 where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
 {
     let state: (Option<T>, Option<task::Waker>) = (None, None);
-    let state_in_thread = sync::Arc::new(sync::Mutex::new(state));
-    let state_in_future = state_in_thread.clone();
+    let state_in_future = sync::Arc::new(sync::Mutex::new(state));
+    let state_in_thread = state_in_future.clone();
 
-    builder.spawn(move || {
-        let output = blocking_fn();
-        let mut state = state_in_thread.lock().unwrap();
-        state.0 = Some(output);
-        if let Some(waker) = state.1.take() {
-            waker.wake();
-        }
-    })?;
-
-    Ok(future::poll_fn(move |cx| {
-        let mut state = state_in_future.lock().unwrap();
-        match state.0.take() {
-            Some(output) => task::Poll::Ready(output),
-            None => {
-                match state.1.as_mut() {
-                    Some(waker) => waker.clone_from(cx.waker()),
-                    None => state.1 = Some(cx.waker().clone()),
+    Ok((
+        future::poll_fn(move |cx| {
+            let mut state = state_in_future.lock().unwrap();
+            match state.0.take() {
+                Some(output) => task::Poll::Ready(output),
+                None => {
+                    match state.1.as_mut() {
+                        Some(waker) => waker.clone_from(cx.waker()),
+                        None => state.1 = Some(cx.waker().clone()),
+                    }
+                    task::Poll::Pending
                 }
-                task::Poll::Pending
             }
-        }
-    }))
+        }),
+        builder.spawn(move || {
+            let output = blocking_fn();
+            let mut state = state_in_thread.lock().unwrap();
+            state.0 = Some(output);
+            if let Some(waker) = state.1.take() {
+                waker.wake();
+            }
+        })?,
+    ))
 }
 
 #[cfg(test)]

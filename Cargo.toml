@@ -1,0 +1,13 @@
+[package]
+name = "thread-async"
+version = "0.1.0"
+authors = ["LiosK <contact@mail.liosk.net>"]
+license = "CC0-1.0"
+edition = "2021"
+description = "Execute a task in a new thread and await the result asynchronously"
+repository = "https://github.com/LiosK/thread-async-rs"
+
+[dependencies]
+
+[dev-dependencies]
+tokio = { version = "1.40", features = ["rt", "time", "macros"] }

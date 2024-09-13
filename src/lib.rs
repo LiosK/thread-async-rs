@@ -99,7 +99,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::run;
+    use super::{run, run_with_builder};
     use std::{thread, time};
 
     const DUR: time::Duration = time::Duration::from_millis(250);
@@ -161,6 +161,21 @@ mod tests {
         let ft = run(blocking_task);
         thread::sleep(DUR * 125 / 100);
         let output = ft.await;
+        let elapsed = time::Instant::now().duration_since(start);
+        assert!(DUR <= elapsed && elapsed < DUR * 2);
+        assert_eq!(output, OUT);
+    }
+
+    #[tokio::test]
+    async fn builder() {
+        let name = "test run_with_builder()";
+        let builder = thread::Builder::new().name(name.into());
+        let start = time::Instant::now();
+        let (ft, jh) = run_with_builder(builder, blocking_task).unwrap();
+        assert_eq!(jh.thread().name(), Some(name));
+        assert!(!jh.is_finished());
+        let output = ft.await;
+        assert!(jh.is_finished());
         let elapsed = time::Instant::now().duration_since(start);
         assert!(DUR <= elapsed && elapsed < DUR * 2);
         assert_eq!(output, OUT);

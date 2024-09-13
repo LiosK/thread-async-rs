@@ -19,3 +19,15 @@ async fn main() {
     assert_eq!(output, 42);
 }
 ```
+
+`run()` and its underlying primitive, `run_with_builder()`, execute the
+specified function in a separate thread and return a `Future` to `.await` the
+result. Each call to `run()` or `run_with_builder()` spawns a new thread that
+executes the specified function and wakes the current task upon completion. The
+specified function is triggered at the time of the call to `run() ` or
+`run_with_builder()`, not at the time of `.await`.
+
+This small crate is portable and works with any async executor, though it is
+suboptimal in performance as it creates a new thread for each task. Equivalent
+functions provided by async executors are usually recommended, unless a
+lightweight, executor-agnostic solution is specifically desired.

@@ -14,15 +14,24 @@
 //!     assert_eq!(output, 42);
 //! }
 //! ```
+//!
+//! [`run()`] and its underlying primitive, [`run_with_builder()`], execute the
+//! specified function in a separate thread and return a [`Future`] to `.await` the
+//! result. Each call to `run()` or `run_with_builder()` spawns a new thread that
+//! executes the specified function and wakes the current task upon completion. The
+//! specified function is triggered at the time of the call to `run() ` or
+//! `run_with_builder()`, not at the time of `.await`.
+//!
+//! This small crate is portable and works with any async executor, though it is
+//! suboptimal in performance as it creates a new thread for each task. Equivalent
+//! functions provided by async executors are usually recommended, unless a
+//! lightweight, executor-agnostic solution is specifically desired.
 
 use std::{future, future::Future, io, sync, task, thread};
 
-/// Executes a blocking task in a dedicated thread, returning a [`Future`] to await the result.
+/// Executes a task in a new thread, returning a [`Future`] to `.await` the result.
 ///
-/// Each call to this function spawns a new thread that runs the blocking function and wakes the
-/// current task after execution. This function is small and works with any async executor, though
-/// it is suboptimal in terms of performance compared to equivalent functions provided by async
-/// executor libraries.
+/// See [the crate-level documentation](crate) for details.
 ///
 /// # Panics
 ///
@@ -37,14 +46,16 @@ where
         .0
 }
 
-/// Executes a blocking task in a dedicated thread, returning a [`Future`] to await the result.
+/// Executes a task in a new thread configured by a [`Builder`](thread::Builder),
+/// returning a [`Result`](io::Result) wrapping a [`Future`] to `.await` the result and a
+/// [`JoinHandle`](thread::JoinHandle) to join on the thread.
 ///
-/// For more information, see [`run()`]. Unlike `run()`, this function:
+/// See [the crate-level documentation](crate) for details. Unlike [`run()`], this function:
 ///
 /// - Receives a [`thread::Builder`] to configure the thread.
 /// - Returns an [`io::Result`] to report any failure in creating the thread.
-/// - Returns a [`thread::JoinHandle`] to join the thread synchronously, in addition to the
-///   [`Future`] to await the result.
+/// - Returns a [`thread::JoinHandle`] to join on the thread synchronously, in addition to the
+///   `Future` to `.await` the result.
 ///
 /// # Errors
 ///

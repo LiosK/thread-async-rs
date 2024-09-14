@@ -70,7 +70,7 @@ where
 {
     let state: (Option<T>, Option<task::Waker>) = (None, None);
     let state_in_future = sync::Arc::new(sync::Mutex::new(state));
-    let state_in_thread = state_in_future.clone();
+    let state_in_thread = sync::Arc::clone(&state_in_future);
 
     Ok((
         future::poll_fn(move |cx| {

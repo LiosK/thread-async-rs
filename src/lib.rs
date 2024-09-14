@@ -180,4 +180,39 @@ mod tests {
         assert!(DUR <= elapsed && elapsed < DUR * 2);
         assert_eq!(output, OUT);
     }
+
+    #[test]
+    fn sync_wait() {
+        use std::{future::Future as _, pin, sync, task};
+
+        struct MockWaker(sync::Mutex<u8>);
+        impl task::Wake for MockWaker {
+            fn wake(self: sync::Arc<Self>) {
+                *self.0.lock().unwrap() += 1;
+            }
+        }
+        let waker_inner = sync::Arc::new(MockWaker(Default::default()));
+        let waker = sync::Arc::clone(&waker_inner).into();
+        let mut context = task::Context::from_waker(&waker);
+
+        let builder = thread::Builder::new();
+        let start = time::Instant::now();
+        let (ft, jh) = run_with_builder(builder, blocking_task).unwrap();
+        let mut ft = pin::pin!(ft);
+
+        let poll_result = ft.as_mut().poll(&mut context);
+        assert!(!jh.is_finished());
+        assert_eq!(poll_result, task::Poll::Pending);
+        let poll_result = ft.as_mut().poll(&mut context);
+        assert!(!jh.is_finished());
+        assert_eq!(poll_result, task::Poll::Pending);
+
+        jh.join().unwrap();
+        let poll_result = ft.as_mut().poll(&mut context);
+        assert_eq!(poll_result, task::Poll::Ready(OUT));
+
+        let elapsed = time::Instant::now().duration_since(start);
+        assert!(DUR <= elapsed && elapsed < DUR * 2);
+        assert_eq!(*waker_inner.0.lock().unwrap(), 1);
+    }
 }

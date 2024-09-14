@@ -185,10 +185,10 @@ mod tests {
     fn sync_wait() {
         use std::{future::Future as _, pin, sync, task};
 
-        struct MockWaker(sync::Mutex<u8>);
+        struct MockWaker(sync::atomic::AtomicU8);
         impl task::Wake for MockWaker {
             fn wake(self: sync::Arc<Self>) {
-                *self.0.lock().unwrap() += 1;
+                self.0.fetch_add(1, sync::atomic::Ordering::SeqCst);
             }
         }
         let waker_inner = sync::Arc::new(MockWaker(Default::default()));
@@ -213,6 +213,6 @@ mod tests {
 
         let elapsed = time::Instant::now().duration_since(start);
         assert!(DUR <= elapsed && elapsed < DUR * 2);
-        assert_eq!(*waker_inner.0.lock().unwrap(), 1);
+        assert_eq!(waker_inner.0.load(sync::atomic::Ordering::SeqCst), 1);
     }
 }
